@@ -35,7 +35,8 @@ func XraySubscription(c *gin.Context) {
 		return
 	}
 
-	result := service.GetSubscriptionLinks(user.ID)
+	scope := c.Query("scope")
+	result := service.GetSubscriptionLinks(user.ID, scope)
 	if result.Code != 0 {
 		c.String(http.StatusInternalServerError, result.Msg)
 		return
@@ -128,7 +129,8 @@ func XraySubReset(c *gin.Context) {
 
 func XraySubLinks(c *gin.Context) {
 	userId := GetUserId(c)
-	c.JSON(http.StatusOK, service.GetSubscriptionLinks(userId))
+	scope := c.Query("scope")
+	c.JSON(http.StatusOK, service.GetSubscriptionLinks(userId, scope))
 }
 
 func GetSubStore(c *gin.Context) {
@@ -144,7 +146,8 @@ func GetSubStore(c *gin.Context) {
 		return
 	}
 
-	result := service.GetSubscriptionLinks(user.ID)
+	scope := c.Query("scope")
+	result := service.GetSubscriptionLinks(user.ID, scope)
 	if result.Code != 0 {
 		c.String(http.StatusInternalServerError, result.Msg)
 		return

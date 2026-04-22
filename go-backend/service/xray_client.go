@@ -374,7 +374,7 @@ func ResetXrayClientTraffic(id int64, userId int64, roleId int) dto.R {
 	return dto.Ok("流量已重置")
 }
 
-func GetSubscriptionLinks(userId int64) dto.R {
+func GetSubscriptionLinks(userId int64, scope string) dto.R {
 	// Check Xray permission
 	var user model.User
 	if err := DB.First(&user, userId).Error; err != nil {
@@ -385,7 +385,7 @@ func GetSubscriptionLinks(userId int64) dto.R {
 	}
 
 	var clients []model.XrayClient
-	if user.RoleId == 0 {
+	if user.RoleId == 0 && scope != "mine" {
 		DB.Where("enable = 1").Find(&clients)
 	} else {
 		DB.Where("user_id = ? AND enable = 1", userId).Find(&clients)
@@ -400,7 +400,7 @@ func GetSubscriptionLinks(userId int64) dto.R {
 		}
 
 		node := GetNodeById(inbound.NodeId)
-		if node == nil || node.Status != 1 {
+		if node == nil {
 			continue
 		}
 

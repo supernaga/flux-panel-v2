@@ -29,9 +29,10 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { randomUUID } from '@/lib/utils/random';
 import InboundDialog from './_components/inbound-dialog';
 import { useTranslation } from '@/lib/i18n';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function XrayInboundPage() {
-  const { isAdmin, vEnabled } = useAuth();
+  const { isAdmin, vEnabled, username } = useAuth();
   const { t } = useTranslation();
   const [inbounds, setInbounds] = useState<any[]>([]);
   const [nodes, setNodes] = useState<any[]>([]);
@@ -42,6 +43,7 @@ export default function XrayInboundPage() {
   const [submitting, setSubmitting] = useState(false);
   const [operatingIds, setOperatingIds] = useState<Set<number>>(new Set());
   const [filterNodeId, setFilterNodeId] = useState('');
+  const [activeTab, setActiveTab] = useState<'admin' | 'user'>('admin');
 
   // Client inline management
   const [expandedInbound, setExpandedInbound] = useState<number | null>(null);
@@ -378,6 +380,19 @@ export default function XrayInboundPage() {
         </div>
       </div>
 
+      {isAdmin && (
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'admin' | 'user')}>
+          <TabsList>
+            <TabsTrigger value="admin">
+              {t('xrayInbound.adminInbounds')} ({inbounds.filter(ib => ib.userName === username).length})
+            </TabsTrigger>
+            <TabsTrigger value="user">
+              {t('xrayInbound.userInbounds')} ({inbounds.filter(ib => ib.userName !== username).length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -389,6 +404,7 @@ export default function XrayInboundPage() {
                 <TableHead>{t('xrayInbound.transportSecurity')}</TableHead>
                 <TableHead>{t('xrayInbound.listenAddr')}</TableHead>
                 <TableHead>{t('xrayInbound.node')}</TableHead>
+                {isAdmin && activeTab === 'user' && <TableHead>{t('xrayInbound.user')}</TableHead>}
                 <TableHead>{t('xrayInbound.clientCount')}</TableHead>
                 <TableHead>{t('xrayInbound.status')}</TableHead>
                 <TableHead>{t('xrayInbound.actions')}</TableHead>
@@ -396,10 +412,15 @@ export default function XrayInboundPage() {
             </TableHeader>
             <TableBody>
               {(() => {
+                const scoped = isAdmin
+                  ? (activeTab === 'admin'
+                      ? inbounds.filter(ib => ib.userName === username)
+                      : inbounds.filter(ib => ib.userName !== username))
+                  : inbounds;
                 const isFiltered = filterNodeId && filterNodeId !== 'all';
                 const filtered = isFiltered
-                  ? inbounds.filter(ib => ib.nodeId?.toString() === filterNodeId)
-                  : inbounds;
+                  ? scoped.filter(ib => ib.nodeId?.toString() === filterNodeId)
+                  : scoped;
 
                 const renderInbound = (ib: any) => (
                   <Fragment key={ib.id}>
@@ -419,6 +440,7 @@ export default function XrayInboundPage() {
                       <TableCell className="text-xs font-mono">{getTransportInfo(ib)}</TableCell>
                       <TableCell className="text-sm font-mono">{ib.listen || '::'}:{ib.port}</TableCell>
                       <TableCell>{getNodeName(ib.nodeId)}</TableCell>
+                      {isAdmin && activeTab === 'user' && <TableCell>{ib.userName || '-'}</TableCell>}
                       <TableCell>{ib.clientCount ?? ib.clients ?? 0}</TableCell>
                       <TableCell>
                         <Badge variant={ib.enable ? 'default' : 'secondary'}>
@@ -447,7 +469,7 @@ export default function XrayInboundPage() {
                     {/* Expanded client sub-table */}
                     {expandedInbound === ib.id && (
                       <TableRow>
-                        <TableCell colSpan={9} className="p-0 bg-muted/30">
+                        <TableCell colSpan={isAdmin && activeTab === 'user' ? 10 : 9} className="p-0 bg-muted/30">
                           <div className="p-4">
                             <div className="flex items-center justify-between mb-3">
                               <h4 className="text-sm font-semibold">{t('xrayInbound.clientList')}</h4>
@@ -549,10 +571,10 @@ export default function XrayInboundPage() {
                 );
 
                 if (loading) {
-                  return <TableRow><TableCell colSpan={9} className="text-center py-8">{t('common.loading')}</TableCell></TableRow>;
+                  return <TableRow><TableCell colSpan={isAdmin && activeTab === 'user' ? 10 : 9} className="text-center py-8">{t('common.loading')}</TableCell></TableRow>;
                 }
                 if (filtered.length === 0) {
-                  return <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">{t('common.noData')}</TableCell></TableRow>;
+                  return <TableRow><TableCell colSpan={isAdmin && activeTab === 'user' ? 10 : 9} className="text-center py-8 text-muted-foreground">{t('common.noData')}</TableCell></TableRow>;
                 }
 
                 // Group by node when showing all (not filtered to specific node)
@@ -572,7 +594,7 @@ export default function XrayInboundPage() {
                     const nodeName = getNodeName(parseInt(nid));
                     return [
                       <TableRow key={`group-${nid}`} className="bg-muted/50 hover:bg-muted/50">
-                        <TableCell colSpan={9} className="py-1.5 text-xs font-semibold text-muted-foreground">
+                        <TableCell colSpan={isAdmin && activeTab === 'user' ? 10 : 9} className="py-1.5 text-xs font-semibold text-muted-foreground">
                           {nodeName} ({groupInbounds.length})
                         </TableCell>
                       </TableRow>,

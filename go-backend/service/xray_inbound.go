@@ -234,6 +234,24 @@ func ListXrayInbounds(nodeId *int64, userId int64, roleId int) dto.R {
 		countMap[c.InboundId] = c.ClientCount
 	}
 
+	// Resolve userName map for the inbounds' owners
+	ownerIds := make([]int64, 0, len(list))
+	seen := make(map[int64]struct{}, len(list))
+	for _, ib := range list {
+		if _, ok := seen[ib.UserId]; !ok {
+			seen[ib.UserId] = struct{}{}
+			ownerIds = append(ownerIds, ib.UserId)
+		}
+	}
+	userNameMap := make(map[int64]string, len(ownerIds))
+	if len(ownerIds) > 0 {
+		var owners []model.User
+		DB.Select("id, `user`").Where("id IN ?", ownerIds).Find(&owners)
+		for _, u := range owners {
+			userNameMap[u.ID] = u.User
+		}
+	}
+
 	// Build response with client count and ownership flag
 	result := make([]map[string]interface{}, 0, len(list))
 	for _, ib := range list {
@@ -242,6 +260,7 @@ func ListXrayInbounds(nodeId *int64, userId int64, roleId int) dto.R {
 			"id":                 ib.ID,
 			"nodeId":             ib.NodeId,
 			"userId":             ib.UserId,
+			"userName":           userNameMap[ib.UserId],
 			"tag":                ib.Tag,
 			"protocol":           ib.Protocol,
 			"listen":             ib.Listen,

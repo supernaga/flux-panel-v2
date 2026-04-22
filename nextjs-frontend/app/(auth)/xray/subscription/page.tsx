@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Copy, RefreshCw, RotateCcw, Rss, Link2, ExternalLink } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { getSubscriptionToken, getSubscriptionLinks, resetSubscriptionToken } from '@/lib/api/xray-subscription';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -17,31 +18,32 @@ export default function XraySubscriptionPage() {
   const { t } = useTranslation();
   const [token, setToken] = useState('');
   const [subUrl, setSubUrl] = useState('');
+  const [subUrlMine, setSubUrlMine] = useState('');
   const [links, setLinks] = useState<any[]>([]);
+  const [linksTab, setLinksTab] = useState<'all' | 'mine'>('all');
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     const [tokenRes, linksRes] = await Promise.all([
       getSubscriptionToken(),
-      getSubscriptionLinks(),
+      getSubscriptionLinks(isAdmin && linksTab === 'mine' ? 'mine' : 'all'),
     ]);
     if (tokenRes.code === 0 && tokenRes.data) {
       const tokenData = typeof tokenRes.data === 'string' ? tokenRes.data : tokenRes.data.token || tokenRes.data.url || '';
       setToken(tokenData);
       // Build subscription URL
-      if (typeof tokenRes.data === 'object' && tokenRes.data.url) {
-        setSubUrl(tokenRes.data.url);
-      } else {
-        const base = window.location.origin;
-        setSubUrl(`${base}/api/v1/v/sub/${tokenData}`);
-      }
+      const baseUrl = (typeof tokenRes.data === 'object' && tokenRes.data.url)
+        ? tokenRes.data.url
+        : `${window.location.origin}/api/v1/v/sub/${tokenData}`;
+      setSubUrl(baseUrl);
+      setSubUrlMine(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}scope=mine`);
     }
     if (linksRes.code === 0) {
       setLinks(linksRes.data || []);
     }
     setLoading(false);
-  }, []);
+  }, [isAdmin, linksTab]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -117,15 +119,33 @@ export default function XraySubscriptionPage() {
             {t('xraySub.subAddressDescription')}
           </p>
           {subUrl ? (
-            <div className="flex gap-2">
-              <Input value={subUrl} readOnly className="font-mono text-sm" />
-              <Button onClick={() => copyToClipboard(subUrl, t('xraySub.subAddrCopied'))}>
-                <Copy className="mr-2 h-4 w-4" />{t('xraySub.copySubAddr')}
-              </Button>
-              <Button variant="destructive" onClick={handleResetToken}>
-                <RotateCcw className="mr-2 h-4 w-4" />{t('xraySub.resetToken')}
-              </Button>
-            </div>
+            <>
+              <div className="space-y-2">
+                {isAdmin && (
+                  <div className="text-xs font-semibold text-muted-foreground">{t('xraySub.subAddressAll')}</div>
+                )}
+                <div className="flex gap-2">
+                  <Input value={subUrl} readOnly className="font-mono text-sm" />
+                  <Button onClick={() => copyToClipboard(subUrl, t('xraySub.subAddrCopied'))}>
+                    <Copy className="mr-2 h-4 w-4" />{t('xraySub.copySubAddr')}
+                  </Button>
+                  <Button variant="destructive" onClick={handleResetToken}>
+                    <RotateCcw className="mr-2 h-4 w-4" />{t('xraySub.resetToken')}
+                  </Button>
+                </div>
+              </div>
+              {isAdmin && subUrlMine && (
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-muted-foreground">{t('xraySub.subAddressMine')}</div>
+                  <div className="flex gap-2">
+                    <Input value={subUrlMine} readOnly className="font-mono text-sm" />
+                    <Button onClick={() => copyToClipboard(subUrlMine, t('xraySub.subAddrCopied'))}>
+                      <Copy className="mr-2 h-4 w-4" />{t('xraySub.copySubAddr')}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-muted-foreground text-sm">{t('xraySub.noSubAddress')}</p>
           )}
@@ -138,13 +158,26 @@ export default function XraySubscriptionPage() {
       </Card>
 
       {/* Protocol Links Card */}
-      {links.length > 0 && (
+      {(links.length > 0 || isAdmin) && (
         <Card>
-          <CardHeader className="flex flex-row items-center gap-3 pb-2">
-            <Link2 className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">{t('xraySub.protocolLinks')}</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between gap-3 pb-2">
+            <div className="flex items-center gap-3">
+              <Link2 className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">{t('xraySub.protocolLinks')}</CardTitle>
+            </div>
+            {isAdmin && (
+              <Tabs value={linksTab} onValueChange={(v) => setLinksTab(v as 'all' | 'mine')}>
+                <TabsList>
+                  <TabsTrigger value="all">{t('xraySub.scopeAll')}</TabsTrigger>
+                  <TabsTrigger value="mine">{t('xraySub.scopeMine')}</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
           </CardHeader>
           <CardContent className="p-0">
+            {links.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">{t('xraySub.noProtocolLinks')}</div>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -184,11 +217,12 @@ export default function XraySubscriptionPage() {
                 ))}
               </TableBody>
             </Table>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {links.length === 0 && (
+      {links.length === 0 && !isAdmin && (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             {t('xraySub.noProtocolLinks')}
