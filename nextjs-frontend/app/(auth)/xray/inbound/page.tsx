@@ -32,7 +32,7 @@ import { useTranslation } from '@/lib/i18n';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function XrayInboundPage() {
-  const { isAdmin, vEnabled, username } = useAuth();
+  const { isAdmin, vEnabled } = useAuth();
   const { t } = useTranslation();
   const [inbounds, setInbounds] = useState<any[]>([]);
   const [nodes, setNodes] = useState<any[]>([]);
@@ -384,10 +384,10 @@ export default function XrayInboundPage() {
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'admin' | 'user')}>
           <TabsList>
             <TabsTrigger value="admin">
-              {t('xrayInbound.adminInbounds')} ({inbounds.filter(ib => ib.userName === username).length})
+              {t('xrayInbound.adminInbounds')} ({inbounds.filter(ib => !ib.userId).length})
             </TabsTrigger>
             <TabsTrigger value="user">
-              {t('xrayInbound.userInbounds')} ({inbounds.filter(ib => ib.userName !== username).length})
+              {t('xrayInbound.userInbounds')} ({inbounds.filter(ib => !!ib.userId).length})
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -414,8 +414,8 @@ export default function XrayInboundPage() {
               {(() => {
                 const scoped = isAdmin
                   ? (activeTab === 'admin'
-                      ? inbounds.filter(ib => ib.userName === username)
-                      : inbounds.filter(ib => ib.userName !== username))
+                      ? inbounds.filter(ib => !ib.userId)
+                      : inbounds.filter(ib => !!ib.userId))
                   : inbounds;
                 const isFiltered = filterNodeId && filterNodeId !== 'all';
                 const filtered = isFiltered
