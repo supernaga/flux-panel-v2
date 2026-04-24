@@ -387,9 +387,10 @@ func GetSubscriptionLinks(userId int64, scope string) dto.R {
 	var clients []model.XrayClient
 	if user.RoleId == 0 {
 		if scope == "mine" {
-			// Admin "mine" scope: clients that live on admin-owned inbounds (inbound.user_id = 0)
+			// Admin "mine" scope: clients that live on admin-owned inbounds
+			// (inbound.user_id = 0 OR NULL — legacy rows may be NULL)
 			DB.Where("enable = 1 AND inbound_id IN (?)",
-				DB.Model(&model.XrayInbound{}).Select("id").Where("user_id = 0")).
+				DB.Model(&model.XrayInbound{}).Select("id").Where("user_id = 0 OR user_id IS NULL")).
 				Find(&clients)
 		} else {
 			DB.Where("enable = 1").Find(&clients)
